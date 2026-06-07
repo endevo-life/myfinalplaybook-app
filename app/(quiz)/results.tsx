@@ -1,13 +1,13 @@
-﻿// Results screen â€” shows score, band, domain breakdown, and CTA to Day 1
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import type { AssessmentResult } from "@/lib/engine";
 import { getJesseWrapper } from "@/lib/engine";
 import { analytics } from "@/lib/analytics";
+import { downloadPDF } from "@/lib/pdf";
 import { JesseAvatar } from "@/components/JesseAvatar";
 import { COLORS, FONTS, SPACING, BAND_COLORS, BAND_TONES, DOMAIN_COLORS, GRADIENTS, RADIUS, SHADOWS } from "@/constants/theme";
 
@@ -18,10 +18,20 @@ export default function ResultsScreen() {
   const jesse = getJesseWrapper(result);
 
   const bandColor = BAND_COLORS[result.band] ?? COLORS.accent;
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     analytics.resultViewed(result.totalScore, result.band, result.weakestDomain);
   }, []);
+
+  const handleDownloadPDF = async () => {
+    setPdfLoading(true);
+    try {
+      await downloadPDF(result);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const handleStartPlan = () => {
     router.replace({
@@ -34,11 +44,12 @@ export default function ResultsScreen() {
     <SafeAreaView style={styles.safe}>
       <LinearGradient colors={GRADIENTS.quiz} style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
+
           {/* Score hero */}
           <View style={styles.heroCard}>
             <Text style={styles.heroLabel}>Your Legacy Readiness Score</Text>
             <Text style={[styles.heroScore, { color: bandColor }]}>{result.percentReady}%</Text>
-            <View style={[styles.bandBadge, { backgroundColor: bandColor + "18", borderColor: bandColor }]}> 
+            <View style={[styles.bandBadge, { backgroundColor: bandColor + "18", borderColor: bandColor }]}>
               <Text style={[styles.bandText, { color: bandColor }]}>{result.band}</Text>
             </View>
             <Text style={styles.bandTone}>{BAND_TONES[result.band]}</Text>
@@ -74,33 +85,46 @@ export default function ResultsScreen() {
                 <View style={styles.barBg}>
                   <LinearGradient
                     colors={[DOMAIN_COLORS[dr.domain], COLORS.amber]}
-                    style={[styles.barFill, { width: `${dr.percent}%` }]}
+                    style={[styles.barFill, { width: `${dr.percent}%` as any }]}
                   />
                 </View>
               </View>
             ))}
           </View>
 
-          {/* Plan summary */}
+          {/* Plan preview */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your 7-Day Plan Starts With</Text>
             <View style={styles.day1Card}>
-              <Text style={styles.day1Label}>Day 1 Â· {result.plan[0].domain}</Text>
+              <Text style={styles.day1Label}>Day 1 · {result.plan[0].domain}</Text>
               <Text style={styles.day1Title}>{result.plan[0].action.title}</Text>
               <Text style={styles.day1Time}>{result.plan[0].action.time}</Text>
             </View>
           </View>
 
-          {/* CTA */}
+          {/* Download PDF */}
+          <TouchableOpacity
+            style={styles.pdfBtn}
+            onPress={handleDownloadPDF}
+            disabled={pdfLoading}
+            activeOpacity={0.8}
+          >
+            {pdfLoading ? (
+              <ActivityIndicator color={COLORS.accent} size="small" />
+            ) : (
+              <Text style={styles.pdfBtnText}>Download My Plan (PDF)</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Start plan CTA */}
           <TouchableOpacity style={styles.ctaWrap} onPress={handleStartPlan} activeOpacity={0.9}>
             <LinearGradient colors={GRADIENTS.cta} style={styles.cta}>
-              <Text style={styles.ctaText}>Start Day 1 Now â†’</Text>
+              <Text style={styles.ctaText}>Start Day 1 Now</Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          <Text style={styles.fine}>
-            One action a day. 7 days. Your legacy, protected.
-          </Text>
+          <Text style={styles.fine}>One action a day. 7 days. Your legacy, protected.</Text>
+
         </ScrollView>
       </LinearGradient>
     </SafeAreaView>
@@ -133,14 +157,24 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1.5,
   },
-  heroScore: { fontFamily: FONTS.families.display, fontSize: 72, fontWeight: FONTS.weights.extrabold, lineHeight: 80 },
+  heroScore: {
+    fontFamily: FONTS.families.display,
+    fontSize: 72,
+    fontWeight: FONTS.weights.extrabold,
+    lineHeight: 80,
+  },
   bandBadge: {
     borderRadius: RADIUS.pill,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderWidth: 1,
   },
-  bandText: { fontFamily: FONTS.families.bodySemibold, fontSize: FONTS.sizes.sm, fontWeight: FONTS.weights.bold, letterSpacing: 1 },
+  bandText: {
+    fontFamily: FONTS.families.bodySemibold,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: FONTS.weights.bold,
+    letterSpacing: 1,
+  },
   bandTone: {
     color: COLORS.offWhite,
     fontFamily: FONTS.families.body,
@@ -160,22 +194,45 @@ const styles = StyleSheet.create({
   },
   jesseHeader: { flexDirection: "row", alignItems: "center", gap: SPACING.md },
   jesseHeaderText: { flex: 1, gap: 2 },
-  jesseLabel: { color: COLORS.accent, fontFamily: FONTS.families.bodySemibold, fontSize: FONTS.sizes.xs, fontWeight: FONTS.weights.semibold, textTransform: "uppercase", letterSpacing: 1 },
+  jesseLabel: {
+    color: COLORS.accent,
+    fontFamily: FONTS.families.bodySemibold,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: FONTS.weights.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
   jesseName: { color: COLORS.muted, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.xs },
   jesseText: { color: COLORS.offWhite, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.body, lineHeight: 24 },
   section: { gap: SPACING.md },
-  sectionTitle: { color: COLORS.white, fontFamily: FONTS.families.display, fontSize: FONTS.sizes.subheading, fontWeight: FONTS.weights.bold },
+  sectionTitle: {
+    color: COLORS.white,
+    fontFamily: FONTS.families.display,
+    fontSize: FONTS.sizes.subheading,
+    fontWeight: FONTS.weights.bold,
+  },
   domainRow: { gap: SPACING.xs },
   domainNameRow: { flexDirection: "row", alignItems: "center", gap: SPACING.sm },
   domainDot: { width: 10, height: 10, borderRadius: 5 },
-  domainName: { color: COLORS.white, fontFamily: FONTS.families.bodyMedium, fontSize: FONTS.sizes.body, fontWeight: FONTS.weights.medium, flex: 1 },
+  domainName: {
+    color: COLORS.white,
+    fontFamily: FONTS.families.bodyMedium,
+    fontSize: FONTS.sizes.body,
+    fontWeight: FONTS.weights.medium,
+    flex: 1,
+  },
   weakestTag: {
     backgroundColor: COLORS.danger + "22",
     borderRadius: RADIUS.pill,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
   },
-  weakestTagText: { color: COLORS.dangerSoft, fontFamily: FONTS.families.bodySemibold, fontSize: FONTS.sizes.xs, fontWeight: FONTS.weights.semibold },
+  weakestTagText: {
+    color: COLORS.dangerSoft,
+    fontFamily: FONTS.families.bodySemibold,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: FONTS.weights.semibold,
+  },
   domainScore: { color: COLORS.muted, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.sm },
   barBg: { height: 6, backgroundColor: COLORS.border, borderRadius: 3 },
   barFill: { height: 6, borderRadius: 3 },
@@ -188,19 +245,39 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     ...SHADOWS.card,
   },
-  day1Label: { color: COLORS.accent, fontFamily: FONTS.families.bodySemibold, fontSize: FONTS.sizes.xs, fontWeight: FONTS.weights.semibold, textTransform: "uppercase", letterSpacing: 1 },
-  day1Title: { color: COLORS.white, fontFamily: FONTS.families.bodySemibold, fontSize: FONTS.sizes.body, fontWeight: FONTS.weights.semibold, lineHeight: 22 },
+  day1Label: {
+    color: COLORS.accent,
+    fontFamily: FONTS.families.bodySemibold,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: FONTS.weights.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  day1Title: {
+    color: COLORS.white,
+    fontFamily: FONTS.families.bodySemibold,
+    fontSize: FONTS.sizes.body,
+    fontWeight: FONTS.weights.semibold,
+    lineHeight: 22,
+  },
   day1Time: { color: COLORS.muted, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.xs },
-  ctaWrap: {
+  pdfBtn: {
     borderRadius: RADIUS.pill,
-    overflow: "hidden",
-    ...SHADOWS.cta,
-  },
-  cta: {
-    paddingVertical: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    paddingVertical: 14,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 50,
   },
+  pdfBtnText: {
+    color: COLORS.accent,
+    fontSize: 15,
+    fontWeight: FONTS.weights.semibold,
+    fontFamily: FONTS.families.bodySemibold,
+  },
+  ctaWrap: { borderRadius: RADIUS.pill, overflow: "hidden", ...SHADOWS.cta },
+  cta: { paddingVertical: SPACING.md, alignItems: "center" },
   ctaText: { color: COLORS.white, fontFamily: FONTS.families.display, fontSize: 17, fontWeight: FONTS.weights.bold },
   fine: { color: COLORS.muted, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.tiny, textAlign: "center" },
 });
-

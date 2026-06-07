@@ -1,12 +1,12 @@
-﻿// Plan home — reads everything from the persistent store, no nav params needed
-import { useEffect } from "react";
+﻿import { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import type { AssessmentResult } from "@/lib/engine";
 import { analytics } from "@/lib/analytics";
+import { downloadPDF } from "@/lib/pdf";
 import { scheduleDailyActionReminder } from "@/lib/notifications";
 import { useAssessmentStore } from "@/hooks/useAssessmentStore";
 import { COLORS, FONTS, SPACING, DOMAIN_COLORS, BAND_COLORS, GRADIENTS, RADIUS, SHADOWS } from "@/constants/theme";
@@ -17,6 +17,17 @@ export default function PlanHomeScreen() {
 
   const result = store.result as AssessmentResult | null;
   const completedDays = store.completedDays;
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!result) return;
+    setPdfLoading(true);
+    try {
+      await downloadPDF(result);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (store.loading) return; // wait for AsyncStorage to finish loading
@@ -73,6 +84,19 @@ export default function PlanHomeScreen() {
               </View>
             </View>
           </View>
+
+          {/* Download PDF */}
+          <TouchableOpacity
+            style={styles.pdfBtn}
+            onPress={handleDownloadPDF}
+            disabled={pdfLoading}
+            activeOpacity={0.8}
+          >
+            {pdfLoading
+              ? <ActivityIndicator color={COLORS.accent} size="small" />
+              : <Text style={styles.pdfBtnText}>Download My Plan (PDF)</Text>
+            }
+          </TouchableOpacity>
 
           {/* Day cards */}
           <View style={styles.dayList}>
@@ -158,6 +182,20 @@ const styles = StyleSheet.create({
   progressText: { color: COLORS.muted, fontSize: FONTS.sizes.xs },
   progressBar: { height: 6, backgroundColor: COLORS.border, borderRadius: 3 },
   progressFill: { height: 6, borderRadius: 3 },
+  pdfBtn: {
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    paddingVertical: 14,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    minHeight: 50,
+  },
+  pdfBtnText: {
+    color: COLORS.accent,
+    fontSize: 15,
+    fontWeight: FONTS.weights.semibold,
+  },
   dayList: { gap: SPACING.sm },
   dayCard: {
     flexDirection: "row", alignItems: "center",
