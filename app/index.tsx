@@ -10,7 +10,6 @@ import Animated, {
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { useAssessmentStore } from "@/hooks/useAssessmentStore";
 import { analytics } from "@/lib/analytics";
 import { COLORS, FONTS, SPACING, GRADIENTS, RADIUS, SHADOWS } from "@/constants/theme";
 import ENDEVO_LOGO from "../assets/logo_v2_with_white_text.png";
@@ -27,20 +26,11 @@ const BUTTON_DELAY = 3500;
 
 export default function IntroScreen() {
   const router = useRouter();
-  const store = useAssessmentStore();
   const [videoEnded, setVideoEnded] = useState(false);
 
   const logoOpacity = useSharedValue(0);
   const btnOpacity  = useSharedValue(0);
   const btnScale    = useSharedValue(0.94);
-
-  // Resume-redirect: if the user has already completed the quiz on this device,
-  // jump them straight into their 7-day plan. "Start over" lives on the plan home.
-  useEffect(() => {
-    if (!store.loading && store.result) {
-      router.replace("/plan" as any);
-    }
-  }, [store.loading, store.result]);
 
   useEffect(() => {
     logoOpacity.value = withTiming(1, { duration: 700 });
