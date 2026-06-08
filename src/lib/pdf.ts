@@ -294,6 +294,20 @@ export async function downloadPDF(result: AssessmentResult): Promise<void> {
     month: "long", day: "numeric", year: "numeric",
   });
   const html = buildPdfHtml(result, dateStr);
+
+  // Web: open branded HTML in a new tab — user presses Ctrl+P → Save as PDF
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      // Auto-trigger print dialog after render
+      win.onload = () => win.print();
+    }
+    return;
+  }
+
+  // Native (iOS/Android): generate file and share
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   const canShare = await Sharing.isAvailableAsync();
   if (canShare) {
