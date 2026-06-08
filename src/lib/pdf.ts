@@ -270,6 +270,7 @@ export function buildPdfHtml(result: AssessmentResult, dateStr: string): string 
       font-family: -apple-system, Helvetica Neue, Arial, sans-serif;
       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { background: #fff; }
+  a { color: inherit; text-decoration: none; pointer-events: none; }
 </style>
 </head>
 <body>
