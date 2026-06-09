@@ -82,7 +82,7 @@ export default function IntroScreen() {
                 onPress={() => setVideoEnded(false)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.replayIcon}>â†º</Text>
+                <Text style={styles.replayIcon}>{"↺"}</Text>
                 <Text style={styles.replayLabel}>Replay</Text>
               </TouchableOpacity>
             )}
@@ -93,7 +93,7 @@ export default function IntroScreen() {
             <Text style={styles.tagline}>Live Fully. Die Ready.</Text>
             <Text style={styles.title}>My Final Playbook</Text>
             <Text style={styles.subtitle}>
-              12 questions Â· 4 domains Â· your personalised 7-day action plan
+              12 questions · 4 domains · your personalised 7-day action plan
             </Text>
           </View>
 
@@ -105,10 +105,10 @@ export default function IntroScreen() {
               activeOpacity={0.88}
             >
               <LinearGradient colors={GRADIENTS.cta} style={styles.ctaBtn}>
-                <Text style={styles.ctaText}>Start My Assessment â†’</Text>
+                <Text style={styles.ctaText}>Start My Assessment →</Text>
               </LinearGradient>
             </TouchableOpacity>
-            <Text style={styles.fine}>Free Â· No account required Â· ~3 minutes</Text>
+            <Text style={styles.fine}>Free · No account required · ~3 minutes</Text>
           </Animated.View>
         </ScrollView>
 
