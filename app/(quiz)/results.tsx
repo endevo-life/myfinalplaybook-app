@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Platform, ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -10,6 +10,7 @@ import { analytics } from "@/lib/analytics";
 import { downloadPDF } from "@/lib/pdf";
 import { JesseAvatar } from "@/components/JesseAvatar";
 import { COLORS, FONTS, SPACING, BAND_COLORS, BAND_TONES, DOMAIN_COLORS, GRADIENTS, RADIUS, SHADOWS } from "@/constants/theme";
+import { Asset } from "expo-asset";
 
 export default function ResultsScreen() {
   const router = useRouter();
@@ -18,20 +19,30 @@ export default function ResultsScreen() {
   const jesse = getJesseWrapper(result);
 
   const bandColor = BAND_COLORS[result.band] ?? COLORS.accent;
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    setDownloading(true);
+    try {
+      const [jesseAsset, logoAsset] = await Asset.loadAsync([
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require("../../assets/jesse.png"),
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require("../../assets/logo_v2_with_white_text.png"),
+      ]);
+      await downloadPDF(
+        result,
+        jesseAsset.localUri ?? jesseAsset.uri ?? undefined,
+        logoAsset.localUri ?? logoAsset.uri ?? undefined,
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     analytics.resultViewed(result.totalScore, result.band, result.weakestDomain);
   }, []);
-
-  const handleDownloadPDF = async () => {
-    setPdfLoading(true);
-    try {
-      await downloadPDF(result);
-    } finally {
-      setPdfLoading(false);
-    }
-  };
 
   const handleStartPlan = () => {
     router.replace({
@@ -102,18 +113,20 @@ export default function ResultsScreen() {
             </View>
           </View>
 
-          {/* Download PDF — branded ENDevo report */}
-          <TouchableOpacity
-            style={styles.pdfBtn}
-            onPress={handleDownloadPDF}
-            disabled={pdfLoading}
-            activeOpacity={0.8}
-          >
-            {pdfLoading
-              ? <ActivityIndicator color={COLORS.accent} size="small" />
-              : <Text style={styles.pdfBtnText}>Download My Plan (PDF)</Text>
-            }
-          </TouchableOpacity>
+          {/* Download PDF — web only (uses window.open) */}
+          {Platform.OS === "web" && (
+            <TouchableOpacity
+              style={styles.pdfBtn}
+              onPress={handleDownloadPDF}
+              disabled={downloading}
+              activeOpacity={0.8}
+            >
+              {downloading
+                ? <ActivityIndicator color={COLORS.accent} size="small" />
+                : <Text style={styles.pdfBtnText}>Download My Plan (PDF)</Text>
+              }
+            </TouchableOpacity>
+          )}
 
           {/* Start plan CTA */}
           <TouchableOpacity style={styles.ctaWrap} onPress={handleStartPlan} activeOpacity={0.9}>

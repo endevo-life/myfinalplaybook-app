@@ -1,5 +1,3 @@
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import type { AssessmentResult } from "./engine";
 
 // ── Brand tokens ───────────────────────────────────────────────
@@ -45,17 +43,22 @@ function day7Closing(result: AssessmentResult): string {
 
 // ── Shared chrome ──────────────────────────────────────────────
 
-function pageHeader(title: string, subtitle: string): string {
+function pageHeader(title: string, subtitle: string, logoUri?: string): string {
+  const logoHtml = logoUri
+    ? `<img src="${logoUri}" style="height:34px;width:auto;" />`
+    : `<div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:30px;height:30px;background:${ORANGE};border-radius:4px;display:flex;align-items:center;justify-content:center;">
+          <svg width="16" height="16" viewBox="0 0 16 16"><polygon points="8,1 15,14 1,14" fill="${WHITE}"/></svg>
+        </div>
+        <div>
+          <div style="color:${WHITE};font-size:12px;font-weight:800;letter-spacing:1px;">ENDevo&#8482;</div>
+          <div style="color:rgba(255,255,255,0.45);font-size:9px;letter-spacing:0.5px;">PLAN. PROTECT. PEACE.</div>
+        </div>
+      </div>`;
   return `
   <div style="background:${NAVY};padding:16px 32px;display:flex;justify-content:space-between;align-items:center;">
     <div style="display:flex;align-items:center;gap:10px;">
-      <div style="width:30px;height:30px;background:${ORANGE};border-radius:4px;display:flex;align-items:center;justify-content:center;">
-        <svg width="16" height="16" viewBox="0 0 16 16"><polygon points="8,1 15,14 1,14" fill="${WHITE}"/></svg>
-      </div>
-      <div>
-        <div style="color:${WHITE};font-size:12px;font-weight:800;letter-spacing:1px;">ENDevo&#8482;</div>
-        <div style="color:rgba(255,255,255,0.45);font-size:9px;letter-spacing:0.5px;">PLAN. PROTECT. PEACE.</div>
-      </div>
+      ${logoHtml}
     </div>
     <div style="text-align:right;">
       <div style="color:${WHITE};font-size:15px;font-weight:800;">${title}</div>
@@ -115,7 +118,7 @@ function donutChart(result: AssessmentResult): string {
 
 // ── Page 1: Score report ───────────────────────────────────────
 
-function scorePage(result: AssessmentResult, dateStr: string): string {
+function scorePage(result: AssessmentResult, dateStr: string, jesseUri?: string, logoUri?: string): string {
   const bandColor = BAND_CLR[result.band] ?? ORANGE;
 
   const domainBars = result.domainResults.map((dr) => {
@@ -152,27 +155,36 @@ function scorePage(result: AssessmentResult, dateStr: string): string {
       ? "You have started but gaps remain. This week we close the most important ones."
       : "You are prepared. This week we sharpen the edges.";
 
+  const jesseHtml = jesseUri
+    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <img src="${jesseUri}" style="width:155px;height:155px;border-radius:50%;border:3px solid ${ORANGE};object-fit:cover;" />
+      </div>`
+    : "";
+
   return `
   <div style="display:flex;flex-direction:column;min-height:100vh;background:${WHITE};">
-    ${pageHeader("Legacy Readiness Assessment", `${result.name} · ${dateStr}`)}
+    ${pageHeader("Legacy Readiness Assessment", `${result.name} · ${dateStr}`, logoUri)}
 
     <div style="padding:32px 40px;flex:1;display:flex;flex-direction:column;">
 
-      <!-- Score hero row -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">
+      <!-- Score hero row: score+band left, Jesse right -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
         <div>
           <div style="font-size:90px;font-weight:900;color:${TEXT_DARK};line-height:0.95;letter-spacing:-3px;">${result.percentReady}%</div>
           <div style="font-size:10px;font-weight:700;color:${TEXT_MUTE};letter-spacing:2px;text-transform:uppercase;margin-top:8px;margin-bottom:14px;">AVERAGE READINESS</div>
           <div style="display:inline-block;background:${bandColor};color:${WHITE};font-weight:800;font-size:13px;padding:7px 20px;border-radius:4px;margin-bottom:14px;">${result.band}</div>
           <div style="font-size:12.5px;color:${TEXT_MID};line-height:1.7;max-width:290px;">${bandDesc}</div>
         </div>
-        <div style="padding-top:6px;">${donutChart(result)}</div>
+        ${jesseHtml}
       </div>
 
-      <!-- Domain bars -->
+      <!-- Score breakdown: bars left, donut chart right -->
       <div style="border-top:1px solid ${GRAY_BAR};padding-top:20px;margin-bottom:24px;">
         <div style="font-size:10px;font-weight:700;color:${TEXT_MUTE};letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;">YOUR SCORE BREAKDOWN</div>
-        ${domainBars}
+        <div style="display:flex;gap:32px;align-items:flex-start;">
+          <div style="flex:1;">${domainBars}</div>
+          <div style="flex-shrink:0;">${donutChart(result)}</div>
+        </div>
       </div>
 
       <!-- Journey dots -->
@@ -227,7 +239,7 @@ function dayBlock(
   <hr style="border:none;border-top:1px solid ${GRAY_BAR};margin:16px 0;">`;
 }
 
-function planPages(result: AssessmentResult): string {
+function planPages(result: AssessmentResult, logoUri?: string): string {
   const subtitle = `Prepared for ${result.name} · ${result.band}`;
   const blocks = result.plan.map((d) => {
     const note = d.day === 7 ? day7Closing(result) : (JESSE_NOTES[d.day] ?? "");
@@ -240,7 +252,7 @@ function planPages(result: AssessmentResult): string {
 
   return `
   <div style="display:flex;flex-direction:column;min-height:100vh;background:${WHITE};">
-    ${pageHeader("Your 7-Day Legacy Plan", subtitle)}
+    ${pageHeader("Your 7-Day Legacy Plan", subtitle, logoUri)}
     <div style="padding:28px 40px;flex:1;display:flex;flex-direction:column;">
       ${blocks}
       <!-- MY NOTES -->
@@ -259,7 +271,7 @@ function planPages(result: AssessmentResult): string {
 
 // ── Public API ─────────────────────────────────────────────────
 
-export function buildPdfHtml(result: AssessmentResult, dateStr: string): string {
+export function buildPdfHtml(result: AssessmentResult, dateStr: string, jesseUri?: string, logoUri?: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -274,9 +286,9 @@ export function buildPdfHtml(result: AssessmentResult, dateStr: string): string 
 </style>
 </head>
 <body>
-  ${scorePage(result, dateStr)}
+  ${scorePage(result, dateStr, jesseUri, logoUri)}
   <div style="page-break-before:always;"></div>
-  ${planPages(result)}
+  ${planPages(result, logoUri)}
 </body>
 </html>`;
 }
@@ -290,32 +302,36 @@ export function buildPdfFilename(name: string): string {
   return `${safe}-7daylegacyplanner-${mm}-${dd}-${yyyy}`;
 }
 
-export async function downloadPDF(result: AssessmentResult): Promise<void> {
+async function toDataUri(url: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return undefined;
+    const blob = await res.blob();
+    if (!blob.size) return undefined;
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(undefined);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+export async function downloadPDF(result: AssessmentResult, jesseUrl?: string, logoUrl?: string): Promise<void> {
   const dateStr = new Date().toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
   });
-  const html = buildPdfHtml(result, dateStr);
-
-  // Web: open branded HTML in a new tab — user presses Ctrl+P → Save as PDF
-  if (typeof window !== "undefined" && typeof document !== "undefined") {
-    const win = window.open("", "_blank");
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      // Auto-trigger print dialog after render
-      win.onload = () => win.print();
-    }
-    return;
-  }
-
-  // Native (iOS/Android): generate file and share
-  const { uri } = await Print.printToFileAsync({ html, base64: false });
-  const canShare = await Sharing.isAvailableAsync();
-  if (canShare) {
-    await Sharing.shareAsync(uri, {
-      mimeType: "application/pdf",
-      dialogTitle: `${buildPdfFilename(result.name)}.pdf`,
-      UTI: "com.adobe.pdf",
-    });
-  }
+  const [jesseUri, logoUri] = await Promise.all([
+    jesseUrl ? toDataUri(jesseUrl) : Promise.resolve(undefined),
+    logoUrl  ? toDataUri(logoUrl)  : Promise.resolve(undefined),
+  ]);
+  const html = buildPdfHtml(result, dateStr, jesseUri, logoUri);
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
 }
