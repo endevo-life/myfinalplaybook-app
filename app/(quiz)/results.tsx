@@ -33,7 +33,9 @@ export default function ResultsScreen() {
     }
   };
 
-  const handleStartPlan = () => {
+  // Temporarily hidden — kept for easy restore. Navigates into the 7-day plan.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleStartPlan = () => {
     router.replace({
       pathname: "/plan" as any,
       params: { result: params.result, email: params.email },
@@ -115,12 +117,14 @@ export default function ResultsScreen() {
             }
           </TouchableOpacity>
 
-          {/* Start plan CTA */}
-          <TouchableOpacity style={styles.ctaWrap} onPress={handleStartPlan} activeOpacity={0.9}>
+          {/* Start plan CTA — temporarily hidden (restore by uncommenting). */}
+          {/*
+          <TouchableOpacity style={styles.ctaWrap} onPress={_handleStartPlan} activeOpacity={0.9}>
             <LinearGradient colors={GRADIENTS.cta} style={styles.cta}>
               <Text style={styles.ctaText}>{"Start Day 1 Now"}</Text>
             </LinearGradient>
           </TouchableOpacity>
+          */}
 
           <Text style={styles.fine}>One action a day. 7 days. Your legacy, protected.</Text>
 
