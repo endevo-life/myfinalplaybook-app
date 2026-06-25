@@ -1,5 +1,5 @@
 ﻿// Day action screen â€” gamified redesign
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, ScrollView, Dimensions,
@@ -126,6 +126,14 @@ export default function DayScreen() {
   const [showXP, setShowXP] = useState(false);
   const [checkedSteps, setCheckedSteps] = useState<number[]>([]);
 
+  // Track the post-completion navigation timer so we can cancel it if the
+  // user leaves the screen first — prevents a stray router.replace firing
+  // after unmount (the "propagating navigation" bug) and double-completes.
+  const navTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (navTimer.current) clearTimeout(navTimer.current);
+  }, []);
+
   const ctaScale = useSharedValue(1);
   const ctaStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
 
@@ -135,8 +143,13 @@ export default function DayScreen() {
     );
   };
 
+  const completingRef = useRef(false);
+
   const handleMarkDone = async () => {
-    if (done) return;
+    // Guard against re-entry: `done` state is async, so a rapid double-tap
+    // could slip through before it commits. The ref blocks synchronously.
+    if (done || completingRef.current) return;
+    completingRef.current = true;
 
     ctaScale.value = withSequence(
       withTiming(0.93, { duration: 80 }),
@@ -157,7 +170,8 @@ export default function DayScreen() {
       scheduleDailyActionReminder(day + 1).catch(() => {});
     }
 
-    setTimeout(() => {
+    navTimer.current = setTimeout(() => {
+      navTimer.current = null;
       router.replace("/plan" as any);
     }, 1400);
   };

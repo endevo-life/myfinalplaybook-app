@@ -23,8 +23,10 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    SplashScreen.hideAsync();
     if (!fontsLoaded) return;
+    // Fonts are ready: hand the native (teal) splash off to the animated
+    // Jesse LoadingScreen, then reveal the app once its intro has played.
+    SplashScreen.hideAsync().catch(() => {});
     const t = setTimeout(() => setReady(true), 3000);
     return () => clearTimeout(t);
   }, [fontsLoaded]);

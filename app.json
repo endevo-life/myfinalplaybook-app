@@ -9,19 +9,21 @@
     "scheme": "myfinalplaybook",
     "splash": {
       "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#1a1a2e"
+      "resizeMode": "cover",
+      "backgroundColor": "#58bbb6"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "endevo.life.finalplaybook"
+      "bundleIdentifier": "endevo.life.finalplaybook",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1a1a2e"
+        "backgroundColor": "#58bbb6"
       },
-      "package": "endevo.life.finalplaybook"
+      "package": "endevo.life.finalplaybook",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro",
