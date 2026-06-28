@@ -1,5 +1,7 @@
+import { Platform, ToastAndroid, Alert } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
 import type { AssessmentResult } from "./engine";
 import { PDF_LOGO_DATA_URI, PDF_JESSE_DATA_URI } from "./pdf-assets";
 
@@ -64,8 +66,10 @@ function pageHeader(title: string, subtitle: string): string {
 function pageFooter(): string {
   return `
   <div style="background:${NAVY};padding:13px 32px;display:flex;justify-content:center;align-items:center;">
-    <a href="https://endevo.life" style="color:${WHITE};font-size:12px;font-weight:600;pointer-events:auto;text-decoration:none;letter-spacing:0.3px;">
-      <span style="font-weight:800;">MyFinalPlaybook</span><span style="color:rgba(255,255,255,0.55);font-weight:500;"> &nbsp;Powered by&nbsp; </span><span style="color:${ORANGE};font-weight:800;">ENDevo</span>
+    <a href="https://endevo.life" style="display:flex;align-items:center;gap:8px;color:${WHITE};font-size:12px;font-weight:600;pointer-events:auto;text-decoration:none;letter-spacing:0.3px;">
+      <span style="font-weight:800;">MyFinalPlaybook</span>
+      <span style="color:rgba(255,255,255,0.55);font-weight:500;">Powered by</span>
+      <img src="${PDF_LOGO_DATA_URI}" alt="ENDevo" style="height:18px;width:auto;display:block;vertical-align:middle;"/>
     </a>
   </div>`;
 }
@@ -275,14 +279,15 @@ export function buildPdfHtml(result: AssessmentResult, dateStr: string): string 
 <head>
 <meta charset="utf-8"/>
 <style>
-  /* Match the app theme: Sora for display, Inter for body. Falls back to
-     system fonts if the device can't fetch them while rendering the PDF. */
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap');
+  /* Use system fonts only. A networked @import (e.g. Google Fonts) makes
+     expo-print's WebView block on a network fetch while rendering the PDF —
+     if that request hangs or aborts on the device, the file never generates
+     and nothing opens. System fonts render instantly and offline. */
   @page { margin: 0; size: A4 portrait; }
   * { box-sizing: border-box; margin: 0; padding: 0;
-      font-family: 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      font-family: -apple-system, 'Helvetica Neue', 'Roboto', Arial, sans-serif;
       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  h1, h2, h3, .display { font-family: 'Sora', 'Inter', -apple-system, Arial, sans-serif; }
+  h1, h2, h3, .display { font-family: -apple-system, 'Helvetica Neue', 'Roboto', Arial, sans-serif; font-weight: 800; }
   body { background: #fff; }
   a { color: inherit; text-decoration: none; pointer-events: none; }
 </style>
@@ -300,8 +305,14 @@ export function buildPdfFilename(name: string): string {
   const mm   = String(d.getMonth() + 1).padStart(2, "0");
   const dd   = String(d.getDate()).padStart(2, "0");
   const yyyy = d.getFullYear();
-  const safe = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  return `${safe}-7daylegacyplanner-${mm}-${dd}-${yyyy}`;
+  // Title-case the name and keep it readable: "MyFinalPlaybook-Nimmi-06-28-2026".
+  const safe = name
+    .trim()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join("-")
+    .replace(/[^A-Za-z0-9-]/g, "");
+  return `MyFinalPlaybook-${safe || "Plan"}-${mm}-${dd}-${yyyy}`;
 }
 
 export async function downloadPDF(result: AssessmentResult): Promise<void> {
@@ -333,14 +344,73 @@ export async function downloadPDF(result: AssessmentResult): Promise<void> {
     return;
   }
 
-  // Native (iOS/Android): generate file and share
-  const { uri } = await Print.printToFileAsync({ html, base64: false });
-  const canShare = await Sharing.isAvailableAsync();
-  if (canShare) {
-    await Sharing.shareAsync(uri, {
+  // Native: generate the PDF, then save it to the device.
+  const filename = `${buildPdfFilename(result.name)}.pdf`;
+
+  // Generate the PDF file. Race against a timeout so a hung WebView render
+  // can't leave the button spinning forever.
+  const tmpUri = await Promise.race<string>([
+    Print.printToFileAsync({ html, base64: false }).then((r) => r.uri),
+    new Promise<string>((_, reject) =>
+      setTimeout(() => reject(new Error("printToFileAsync timed out")), 12000)
+    ),
+  ]).catch(() => "");
+
+  if (!tmpUri) {
+    // Generation failed — fall back to the interactive print dialog.
+    await Print.printAsync({ html });
+    return;
+  }
+
+  // ── Android: save straight to the public Downloads folder, then toast. ──
+  if (Platform.OS === "android") {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(tmpUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      // Ask once for a save location (cached after first grant); default to
+      // the Downloads tree. Then create the file there and write the PDF.
+      const perm =
+        await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (perm.granted) {
+        const destUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          perm.directoryUri,
+          filename,
+          "application/pdf"
+        );
+        await FileSystem.writeAsStringAsync(destUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        ToastAndroid.show("Saved to your selected folder ✓", ToastAndroid.LONG);
+        return;
+      }
+      // User declined the folder picker — fall back to sharing the file.
+    } catch {
+      // Any failure → fall back to the share sheet below.
+    }
+  }
+
+  // ── iOS (and Android fallback): share/save via the OS sheet. ──
+  // Copy into cache under our filename so the sheet shows the right name and
+  // the file:// is readable (raw printToFile cache paths are blocked on
+  // Android 14+).
+  let shareUri = tmpUri;
+  try {
+    const destUri = `${FileSystem.cacheDirectory}${filename}`;
+    await FileSystem.deleteAsync(destUri, { idempotent: true });
+    await FileSystem.copyAsync({ from: tmpUri, to: destUri });
+    if ((await FileSystem.getInfoAsync(destUri)).exists) shareUri = destUri;
+  } catch {
+    /* use tmpUri */
+  }
+
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(shareUri, {
       mimeType: "application/pdf",
-      dialogTitle: `${buildPdfFilename(result.name)}.pdf`,
+      dialogTitle: filename,
       UTI: "com.adobe.pdf",
     });
+  } else {
+    Alert.alert("Saved", `Your plan was saved as ${filename}.`);
   }
 }

@@ -2,8 +2,9 @@
 import { useState } from "react";
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  SafeAreaView, KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, FONTS, SPACING, GRADIENTS, RADIUS, SHADOWS } from "@/constants/theme";
@@ -11,6 +12,7 @@ import { COLORS, FONTS, SPACING, GRADIENTS, RADIUS, SHADOWS } from "@/constants/
 export default function NameScreen() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const insets = useSafeAreaInsets();
 
   const canContinue = name.trim().length >= 2;
 
@@ -20,12 +22,17 @@ export default function NameScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right", "top"]}>
       <LinearGradient colors={GRADIENTS.quiz} style={styles.container}>
         <KeyboardAvoidingView
-          style={styles.inner}
+          style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
+          <ScrollView
+            contentContainerStyle={[styles.inner, { paddingBottom: insets.bottom + SPACING.xl }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <View style={styles.top}>
             <Text style={styles.step}>Let's start</Text>
             <Text style={styles.title}>What's your first name?</Text>
@@ -56,6 +63,7 @@ export default function NameScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
     </SafeAreaView>
@@ -65,12 +73,14 @@ export default function NameScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   container: { flex: 1 },
+  flex: { flex: 1 },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING["2xl"],
     paddingBottom: SPACING.xl,
     justifyContent: "space-between",
+    gap: SPACING.xl,
   },
   top: { gap: SPACING.sm },
   step: {
