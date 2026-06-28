@@ -333,14 +333,21 @@ export async function downloadPDF(result: AssessmentResult): Promise<void> {
     return;
   }
 
-  // Native (iOS/Android): generate file and share
-  const { uri } = await Print.printToFileAsync({ html, base64: false });
-  const canShare = await Sharing.isAvailableAsync();
-  if (canShare) {
-    await Sharing.shareAsync(uri, {
-      mimeType: "application/pdf",
-      dialogTitle: `${buildPdfFilename(result.name)}.pdf`,
-      UTI: "com.adobe.pdf",
-    });
+  // Native (iOS/Android): open a viewable native print/preview dialog. This
+  // renders the PDF on screen where the user can read it and save/print it —
+  // unlike the share sheet, it works even when no other apps are installed to
+  // receive the file (e.g. a bare emulator). We still fall back to the share
+  // sheet if the print dialog is unavailable.
+  try {
+    await Print.printAsync({ html });
+  } catch {
+    const { uri } = await Print.printToFileAsync({ html, base64: false });
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: `${buildPdfFilename(result.name)}.pdf`,
+        UTI: "com.adobe.pdf",
+      });
+    }
   }
 }
