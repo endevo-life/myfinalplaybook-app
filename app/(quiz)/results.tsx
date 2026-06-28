@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import type { AssessmentResult } from "@/lib/engine";
@@ -19,6 +20,7 @@ export default function ResultsScreen() {
 
   const bandColor = BAND_COLORS[result.band] ?? COLORS.accent;
   const [pdfLoading, setPdfLoading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     analytics.resultViewed(result.totalScore, result.band, result.weakestDomain);
@@ -28,6 +30,8 @@ export default function ResultsScreen() {
     setPdfLoading(true);
     try {
       await downloadPDF(result);
+    } catch (e) {
+      console.warn("PDF generation failed:", e);
     } finally {
       setPdfLoading(false);
     }
@@ -43,9 +47,9 @@ export default function ResultsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right", "top"]}>
       <LinearGradient colors={GRADIENTS.quiz} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}>
 
           {/* Score hero */}
           <View style={styles.heroCard}>

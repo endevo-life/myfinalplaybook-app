@@ -1,13 +1,21 @@
 ﻿// One-question-at-a-time quiz screen
-import { useState, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { QUESTIONS, type Answer } from "@/lib/engine";
 import { COLORS, FONTS, SPACING, DOMAIN_COLORS, GRADIENTS, RADIUS, SHADOWS } from "@/constants/theme";
 import { analytics } from "@/lib/analytics";
+
+// In-memory answer store for the current quiz session. Survives back/forward
+// navigation (which only carries forward params), so returning to a question
+// can show the answer the user already picked. Reset when the quiz restarts
+// (questionIndex 0 with no prior answers). No DB needed — it lives for the
+// lifetime of the quiz flow.
+const answerStore = new Map<string, string>();
 
 export default function QuestionScreen() {
   const router = useRouter();
@@ -19,50 +27,97 @@ export default function QuestionScreen() {
   const qIndex = parseInt(params.questionIndex ?? "0", 10);
   const previousAnswers: Answer[] = params.answers ? JSON.parse(params.answers) : [];
 
+  // Seed the store from incoming params and, on a fresh start, clear stale
+  // answers from a previous run-through.
+  if (qIndex === 0 && previousAnswers.length === 0) answerStore.clear();
+  previousAnswers.forEach((a) => answerStore.set(a.questionId, a.value));
+
   const question = QUESTIONS[qIndex];
   const [selected, setSelected] = useState<string | null>(null);
 
-  // Reset selection whenever the question changes (component is reused by expo-router)
-  useEffect(() => {
-    setSelected(null);
-  }, [qIndex]);
   const isLast = qIndex === QUESTIONS.length - 1;
   const progress = (qIndex + 1) / QUESTIONS.length;
   const domainColor = DOMAIN_COLORS[question.domain] ?? COLORS.accent;
 
-  const handleSelect = (value: string) => setSelected(value);
+  const insets = useSafeAreaInsets();
 
-  const handleNext = () => {
-    if (!selected) return;
-    analytics.questionAnswered(qIndex + 1, selected);
+  // Track the auto-advance timer so we can cancel it if the user leaves the
+  // screen (or the question changes) before it fires.
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const advancingRef = useRef(false);
 
-    const updatedAnswers: Answer[] = [
-      ...previousAnswers,
-      { questionId: question.id, value: selected },
-    ];
+  // Re-arm the screen every time it gains focus — including when the user
+  // presses Back to return to a previous question. Without this, advancingRef
+  // stays `true` from when we navigated away, which blocks re-selecting an
+  // answer after going back. We also restore the answer the user previously
+  // gave for THIS question (if any) so it shows pre-selected on return.
+  useFocusEffect(
+    useCallback(() => {
+      advancingRef.current = false;
+      // Restore the previously chosen answer for this question (from the
+      // session store) so it shows pre-selected when returning via Back.
+      setSelected(answerStore.get(question.id) ?? null);
+      return () => {
+        if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      };
+    }, [question.id])
+  );
 
-    if (isLast) {
-      router.push({
-        pathname: "/email",
-        params: { answers: JSON.stringify(updatedAnswers) },
-      });
-    } else {
-      router.push({
-        pathname: "/question",
-        params: {
-          questionIndex: String(qIndex + 1),
-          answers: JSON.stringify(updatedAnswers),
-        },
-      });
+  // Navigate forward using the chosen value directly (not the async `selected`
+  // state) so auto-advance fires immediately and reliably.
+  const goNext = useCallback(
+    (value: string) => {
+      if (advancingRef.current) return;
+      advancingRef.current = true;
+      analytics.questionAnswered(qIndex + 1, value);
+
+      // Record this answer in the session store, then build the forward list
+      // from the store as an upsert (so changing a prior answer after going
+      // back replaces it rather than duplicating).
+      answerStore.set(question.id, value);
+      const updatedAnswers: Answer[] = QUESTIONS.slice(0, qIndex + 1)
+        .map((q) => {
+          const v = answerStore.get(q.id);
+          return v ? { questionId: q.id, value: v } : null;
+        })
+        .filter((a): a is Answer => a !== null);
+
+      if (isLast) {
+        router.push({
+          pathname: "/email",
+          params: { answers: JSON.stringify(updatedAnswers) },
+        });
+      } else {
+        router.push({
+          pathname: "/question",
+          params: {
+            questionIndex: String(qIndex + 1),
+            answers: JSON.stringify(updatedAnswers),
+          },
+        });
+      }
+    },
+    [qIndex, isLast, question.id, router]
+  );
+
+  // Tapping an answer: highlight it, then (for Q1–11) auto-advance after a brief
+  // beat so the user sees their choice register. The last question waits for the
+  // explicit "See My Results" button instead.
+  const handleSelect = (value: string) => {
+    if (advancingRef.current) return;
+    setSelected(value);
+    if (!isLast) {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      advanceTimer.current = setTimeout(() => goNext(value), 250);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       <LinearGradient colors={GRADIENTS.quiz} style={styles.container}>
 
         {/* Top bar: back button + counter */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: insets.top + SPACING.md }]}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => router.back()}
@@ -111,17 +166,24 @@ export default function QuestionScreen() {
           </View>
         </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.nextWrap, !selected && styles.nextDisabled]}
-            onPress={handleNext}
-            disabled={!selected}
-            activeOpacity={0.9}
-          >
-            <LinearGradient colors={GRADIENTS.cta} style={styles.nextButton}>
-              <Text style={styles.nextText}>{isLast ? "See My Results" : "Next →"}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+        {/* Q1–11 auto-advance on tap (no button). Only the final question shows
+            a button, giving a deliberate beat before results. A hint replaces
+            the button on earlier questions so the screen feels intentional. */}
+        <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.xl }]}>
+          {isLast ? (
+            <TouchableOpacity
+              style={[styles.nextWrap, !selected && styles.nextDisabled]}
+              onPress={() => selected && goNext(selected)}
+              disabled={!selected}
+              activeOpacity={0.9}
+            >
+              <LinearGradient colors={GRADIENTS.cta} style={styles.nextButton}>
+                <Text style={styles.nextText}>See My Results</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.tapHint}>Tap an answer to continue</Text>
+          )}
         </View>
       </LinearGradient>
     </SafeAreaView>
@@ -162,9 +224,12 @@ const styles = StyleSheet.create({
   },
   scroll: { flex: 1 },
   scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
-    paddingBottom: SPACING.xl,
+    paddingTop: SPACING["2xl"],
+    paddingBottom: SPACING["2xl"],
+    gap: SPACING.sm,
   },
   meta: {
     flexDirection: "row",
@@ -244,6 +309,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.xl,
     paddingTop: SPACING.md,
+    minHeight: 56,
+    justifyContent: "center",
+  },
+  tapHint: {
+    color: COLORS.muted,
+    fontSize: FONTS.sizes.sm,
+    textAlign: "center",
+    fontWeight: FONTS.weights.medium,
   },
   nextWrap: {
     borderRadius: RADIUS.pill,

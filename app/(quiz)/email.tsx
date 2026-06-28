@@ -2,8 +2,9 @@
 import { useState, useRef } from "react";
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  SafeAreaView, KeyboardAvoidingView, Platform, Switch,
+  KeyboardAvoidingView, Platform, Switch, ScrollView,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { runAssessment, type Answer } from "@/lib/engine";
@@ -17,6 +18,7 @@ export default function EmailScreen() {
   const store    = useAssessmentStore();
   const params   = useLocalSearchParams<{ answers: string }>();
   const answers: Answer[] = params.answers ? JSON.parse(params.answers) : [];
+  const insets   = useSafeAreaInsets();
 
   const [firstName, setFirstName] = useState("");
   const [email,     setEmail]     = useState("");
@@ -66,12 +68,17 @@ export default function EmailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right", "top"]}>
       <LinearGradient colors={GRADIENTS.quiz} style={styles.container}>
         <KeyboardAvoidingView
-          style={styles.inner}
+          style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
+          <ScrollView
+            contentContainerStyle={[styles.inner, { paddingBottom: insets.bottom + SPACING.xl }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <View style={styles.top}>
             <Text style={styles.label}>Almost there</Text>
             <Text style={styles.title}>Where should we send your plan?</Text>
@@ -138,6 +145,7 @@ export default function EmailScreen() {
           </TouchableOpacity>
 
           <Text style={styles.privacy}>No spam. No sharing. Unsubscribe anytime.</Text>
+          </ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
     </SafeAreaView>
@@ -147,12 +155,14 @@ export default function EmailScreen() {
 const styles = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: COLORS.background },
   container: { flex: 1 },
+  flex:      { flex: 1 },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING["2xl"],
     paddingBottom: SPACING.xl,
     justifyContent: "space-between",
+    gap: SPACING.lg,
   },
   top:   { gap: SPACING.sm },
   label: {

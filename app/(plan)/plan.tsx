@@ -1,7 +1,8 @@
 ﻿import { useEffect } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import type { AssessmentResult } from "@/lib/engine";
@@ -16,6 +17,7 @@ export default function PlanHomeScreen() {
 
   const result = store.result as AssessmentResult | null;
   const completedDays = store.completedDays;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (store.loading) return; // wait for AsyncStorage to finish loading
@@ -47,9 +49,9 @@ export default function PlanHomeScreen() {
   const doneCount = completedDays.length;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right", "top"]}>
       <LinearGradient colors={GRADIENTS.quiz} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}>
 
           {/* Header */}
           <View style={styles.headerCard}>

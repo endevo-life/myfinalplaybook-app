@@ -1,9 +1,9 @@
 ﻿// Day action screen â€” gamified redesign
 import { useState, useEffect, useRef } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, Dimensions,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withTiming, withSpring, withSequence, withDelay,
@@ -19,7 +19,6 @@ import { JesseAvatar } from "@/components/JesseAvatar";
 import { useAssessmentStore } from "@/hooks/useAssessmentStore";
 import { COLORS, FONTS, SPACING, DOMAIN_COLORS, GRADIENTS, RADIUS, SHADOWS } from "@/constants/theme";
 
-const { width: _W } = Dimensions.get("window"); // reserved for future layout use
 
 const DAY_NOTES = (jesse: ReturnType<typeof getJesseWrapper>) => ({
   1: jesse.day1Note,
@@ -106,6 +105,7 @@ export default function DayScreen() {
   const router = useRouter();
   const store = useAssessmentStore();
   const params = useLocalSearchParams<{ day: string }>();
+  const insets = useSafeAreaInsets();
 
   // Read plan and progress from the persistent store â€” not nav params
   const result = store.result as AssessmentResult;
@@ -179,12 +179,12 @@ export default function DayScreen() {
   const streakCount = completedDays.length + (done ? 1 : 0);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right"]}>
       {/* XP burst overlay */}
       <XPBurst visible={showXP} />
 
       {/* Top bar */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + SPACING.sm }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
           <Text style={styles.backText}>â€¹ Back</Text>
         </TouchableOpacity>
@@ -326,7 +326,7 @@ export default function DayScreen() {
       </ScrollView>
 
       {/* â”€â”€ STICKY CTA â”€â”€ */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.lg }]}>
         <Animated.View style={[styles.ctaWrap, ctaStyle]}>
           <TouchableOpacity
             onPress={handleMarkDone}

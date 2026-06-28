@@ -1,8 +1,9 @@
 ﻿import { useState, useEffect } from "react";
 import {
   View, Text, Image, StyleSheet, TouchableOpacity,
-  ScrollView, Dimensions, Platform,
+  ScrollView, useWindowDimensions,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withTiming, withDelay, withSpring,
@@ -16,17 +17,18 @@ import ENDEVO_LOGO from "../assets/logo_v2_with_white_text.png";
 
 import VIDEO_SRC from "../assets/Jesse-q12.mp4";
 
-const { width: W } = Dimensions.get("window");
-
-// Portrait 9:16 card, max 320px wide
-const VID_W = Math.min(W - SPACING.lg * 2, 320);
-const VID_H = Math.round(VID_W * (16 / 9));
-
 const BUTTON_DELAY = 3500;
 
 export default function IntroScreen() {
   const router = useRouter();
   const [videoEnded, setVideoEnded] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  // Responsive 9:16 video card — recomputes on rotation / different screens.
+  const { width: W, height: H } = useWindowDimensions();
+  const VID_W = Math.min(W - SPACING.lg * 2, 320);
+  // Cap height so the card never exceeds ~half the screen on small phones.
+  const VID_H = Math.min(Math.round(VID_W * (16 / 9)), Math.round(H * 0.5));
 
   const logoOpacity = useSharedValue(0);
   const btnOpacity  = useSharedValue(0);
@@ -50,7 +52,7 @@ export default function IntroScreen() {
   }));
 
   return (
-    <View style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right", "top"]}>
       <LinearGradient colors={GRADIENTS.main} style={styles.container}>
 
         {/* Logo bar */}
@@ -63,7 +65,7 @@ export default function IntroScreen() {
         </Animated.View>
 
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + SPACING.xl }]}
           showsVerticalScrollIndicator={false}
         >
           {/* Video card */}
@@ -113,7 +115,7 @@ export default function IntroScreen() {
         </ScrollView>
 
       </LinearGradient>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -126,7 +128,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: SPACING.lg,
-    paddingTop: Platform.OS === "ios" ? 56 : SPACING.lg,
+    paddingTop: SPACING.sm,
     paddingBottom: SPACING.sm,
   },
   logo: { width: 130, height: 36 },
