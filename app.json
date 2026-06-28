@@ -22,8 +22,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#58bbb6"
       },
-      "package": "endevo.life.finalplaybook",
-      "versionCode": 1
+      "package": "endevo.life.finalplaybook"
     },
     "web": {
       "bundler": "metro",
