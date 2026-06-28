@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MyFinalPlaybook",
-    "slug": "my-final-playbook",
+    "slug": "my-final-playbook-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -52,6 +52,15 @@
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "59d45a41-2854-491d-a56a-d0c0138b1be0"
+      }
+    },
+    "owner": "helloendevos-team"
   }
 }
