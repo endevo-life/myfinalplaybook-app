@@ -64,7 +64,7 @@ function buildPayload(
     day_5_action_title: result.plan[4].action.title,
     day_6_action_title: result.plan[5].action.title,
     day_7_action_title: result.plan[6].action.title,
-    source: "Q12_MOBILE",
+    source: "q12_mobile_app",
     consent_marketing: consentMarketing,
     platform,
     tags,
