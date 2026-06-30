@@ -143,8 +143,10 @@ function scorePage(result: AssessmentResult, dateStr: string): string {
     </div>`;
   }).join("");
 
+  // Each journey marker links to its matching day block on the plan page
+  // (id="day-N"), so the page-1 journey acts as a tappable table of contents.
   const journeyDots = result.plan.map((d, i) => `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+    <a href="#day-${d.day}" style="display:flex;flex-direction:column;align-items:center;gap:4px;text-decoration:none;color:inherit;">
       <div style="width:44px;height:44px;border-radius:50%;
         background:${i === 0 ? ORANGE : "transparent"};
         border:2px solid ${i === 0 ? ORANGE : GRAY_BAR};
@@ -154,7 +156,7 @@ function scorePage(result: AssessmentResult, dateStr: string): string {
       <div style="font-size:10px;font-weight:${i === 0 ? "700" : "400"};color:${i === 0 ? ORANGE : TEXT_MUTE};">
         ${i === 0 ? "Today" : `Day ${d.day}`}
       </div>
-    </div>`).join("");
+    </a>`).join("");
 
   const bandDesc =
     result.band === "AT RISK"
@@ -164,10 +166,10 @@ function scorePage(result: AssessmentResult, dateStr: string): string {
       : "You are prepared. This week we sharpen the edges.";
 
   return `
-  <div style="display:flex;flex-direction:column;min-height:100vh;background:${WHITE};">
+  <div class="sheet" style="background:${WHITE};">
     ${pageHeader("Legacy Readiness Assessment", `${result.name} · ${dateStr}`)}
 
-    <div style="padding:36px 40px 32px;flex:1;display:flex;flex-direction:column;">
+    <div style="padding:36px 40px 32px;flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;">
 
       <!-- Score hero row: score + band on the left, Jesse on the right -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:34px;">
@@ -216,7 +218,7 @@ function dayBlock(
     : [`${domain}`, "Readiness"];
 
   return `
-  <div style="display:flex;gap:0;margin-bottom:4px;page-break-inside:avoid;">
+  <div id="day-${day}" style="display:flex;gap:0;margin-bottom:4px;page-break-inside:avoid;">
     <!-- Left: day + domain -->
     <div style="min-width:128px;max-width:128px;padding-right:16px;">
       <div style="color:${ORANGE};font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;">DAY ${String(day).padStart(2, "0")}</div>
@@ -253,9 +255,9 @@ function planPages(result: AssessmentResult): string {
   ).join("");
 
   return `
-  <div style="display:flex;flex-direction:column;min-height:100vh;background:${WHITE};">
+  <div class="sheet" style="background:${WHITE};">
     ${pageHeader("Your 7-Day Legacy Plan", subtitle)}
-    <div style="padding:28px 40px;flex:1;display:flex;flex-direction:column;">
+    <div style="padding:28px 40px;flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;">
       ${blocks}
       <!-- MY NOTES -->
       <div style="margin-top:16px;page-break-inside:avoid;">
@@ -289,12 +291,17 @@ export function buildPdfHtml(result: AssessmentResult, dateStr: string): string 
       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   h1, h2, h3, .display { font-family: -apple-system, 'Helvetica Neue', 'Roboto', Arial, sans-serif; font-weight: 800; }
   body { background: #fff; }
-  a { color: inherit; text-decoration: none; pointer-events: none; }
+  a { color: inherit; text-decoration: none; }
+  /* Each .sheet is exactly one printed page. We use a fixed 296mm height (1mm
+     under A4's 297mm) plus overflow:hidden so a sub-pixel rounding overflow
+     can never spill a near-blank "page 2". Subsequent sheets force a clean
+     page break before themselves — no trailing/empty pages. */
+  .sheet { width: 210mm; height: 296mm; overflow: hidden; display: flex; flex-direction: column; }
+  .sheet + .sheet { page-break-before: always; }
 </style>
 </head>
 <body>
   ${scorePage(result, dateStr)}
-  <div style="page-break-before:always;"></div>
   ${planPages(result)}
 </body>
 </html>`;
