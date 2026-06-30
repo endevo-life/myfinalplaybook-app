@@ -46,20 +46,18 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
+      {/* Routes are auto-registered by Expo Router (file-based). We don't list
+          them explicitly because the quiz screens live in the (quiz) group, so
+          their route names are "(quiz)/question" etc. — listing bare names like
+          "question" logs "no route named …" warnings and does nothing useful.
+          screenOptions below applies to every screen. */}
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: COLORS.background },
           animation: "slide_from_right",
         }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="question" />
-        <Stack.Screen name="email" />
-        <Stack.Screen name="results" />
-        <Stack.Screen name="plan" />
-        <Stack.Screen name="day" />
-      </Stack>
+      />
     </SafeAreaProvider>
   );
 }

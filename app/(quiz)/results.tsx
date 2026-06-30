@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import type { AssessmentResult } from "@/lib/engine";
 import { getJesseWrapper } from "@/lib/engine";
@@ -13,18 +13,38 @@ import { JesseAvatar } from "@/components/JesseAvatar";
 import { COLORS, FONTS, SPACING, BAND_COLORS, BAND_TONES, DOMAIN_COLORS, GRADIENTS, RADIUS, SHADOWS } from "@/constants/theme";
 
 export default function ResultsScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{ result: string; email: string }>();
-  const result: AssessmentResult = JSON.parse(params.result ?? "{}");
-  const jesse = getJesseWrapper(result);
-
-  const bandColor = BAND_COLORS[result.band] ?? COLORS.accent;
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Parse the result param defensively. A malformed or absent payload — e.g. a
+  // raw deep link to /results, or a hot-reload that drops navigation params —
+  // must not crash the screen on result.domainResults.map(...). We treat it as
+  // "no result" and bounce home instead of throwing.
+  const result = useMemo<AssessmentResult | null>(() => {
+    try {
+      const r = params.result ? JSON.parse(params.result) : null;
+      return r && Array.isArray(r.domainResults) && Array.isArray(r.plan)
+        ? (r as AssessmentResult)
+        : null;
+    } catch {
+      return null;
+    }
+  }, [params.result]);
 
   useEffect(() => {
+    if (!result) {
+      router.replace("/" as any);
+      return;
+    }
     analytics.resultViewed(result.totalScore, result.band, result.weakestDomain);
-  }, []);
+  }, [result]);
+
+  if (!result) return null;
+
+  const jesse = getJesseWrapper(result);
+  const bandColor = BAND_COLORS[result.band] ?? COLORS.accent;
 
   const handleDownloadPDF = async () => {
     setPdfLoading(true);
@@ -35,15 +55,6 @@ export default function ResultsScreen() {
     } finally {
       setPdfLoading(false);
     }
-  };
-
-  // Temporarily hidden — kept for easy restore. Navigates into the 7-day plan.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleStartPlan = () => {
-    router.replace({
-      pathname: "/plan" as any,
-      params: { result: params.result, email: params.email },
-    });
   };
 
   return (
@@ -98,13 +109,31 @@ export default function ResultsScreen() {
             ))}
           </View>
 
-          {/* Plan preview */}
+          {/* Full 7-day plan — view only, intentionally not interactive */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your 7-Day Plan Starts With</Text>
-            <View style={styles.day1Card}>
-              <Text style={styles.day1Label}>{"Day 1 · " + result.plan[0].domain}</Text>
-              <Text style={styles.day1Title}>{result.plan[0].action.title}</Text>
-              <Text style={styles.day1Time}>{result.plan[0].action.time}</Text>
+            <Text style={styles.sectionTitle}>Your 7-Day Plan</Text>
+            <View style={styles.planList}>
+              {result.plan.map((assignment) => {
+                const domainColor = DOMAIN_COLORS[assignment.domain] ?? COLORS.accent;
+                const isDay1 = assignment.day === 1;
+                return (
+                  <View
+                    key={assignment.day}
+                    style={[styles.planDayCard, isDay1 && { borderColor: domainColor }]}
+                  >
+                    <View style={[styles.planDayBadge, { backgroundColor: domainColor + "22" }]}>
+                      <Text style={[styles.planDayNumber, { color: domainColor }]}>{assignment.day}</Text>
+                    </View>
+                    <View style={styles.planDayContent}>
+                      <Text style={styles.planDayDomain}>
+                        {assignment.domain === "ALL" ? "All Domains" : assignment.domain}
+                      </Text>
+                      <Text style={styles.planDayTitle}>{assignment.action.title}</Text>
+                      <Text style={styles.planDayTime}>{assignment.action.time}</Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </View>
 
@@ -120,15 +149,6 @@ export default function ResultsScreen() {
               : <Text style={styles.pdfBtnText}>Download My Plan (PDF)</Text>
             }
           </TouchableOpacity>
-
-          {/* Start plan CTA — temporarily hidden (restore by uncommenting). */}
-          {/*
-          <TouchableOpacity style={styles.ctaWrap} onPress={_handleStartPlan} activeOpacity={0.9}>
-            <LinearGradient colors={GRADIENTS.cta} style={styles.cta}>
-              <Text style={styles.ctaText}>{"Start Day 1 Now"}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          */}
 
           <Text style={styles.fine}>One action a day. 7 days. Your legacy, protected.</Text>
 
@@ -243,31 +263,47 @@ const styles = StyleSheet.create({
   domainScore: { color: COLORS.muted, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.sm },
   barBg: { height: 6, backgroundColor: COLORS.border, borderRadius: 3 },
   barFill: { height: 6, borderRadius: 3 },
-  day1Card: {
+  planList: { gap: SPACING.sm },
+  planDayCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACING.md,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.card,
     padding: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    gap: SPACING.xs,
     ...SHADOWS.card,
   },
-  day1Label: {
-    color: COLORS.accent,
+  planDayBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  planDayNumber: {
+    fontFamily: FONTS.families.display,
+    fontSize: FONTS.sizes.body,
+    fontWeight: FONTS.weights.bold,
+  },
+  planDayContent: { flex: 1, gap: 2 },
+  planDayDomain: {
+    color: COLORS.muted,
     fontFamily: FONTS.families.bodySemibold,
     fontSize: FONTS.sizes.xs,
     fontWeight: FONTS.weights.semibold,
     textTransform: "uppercase",
     letterSpacing: 1,
   },
-  day1Title: {
+  planDayTitle: {
     color: COLORS.white,
     fontFamily: FONTS.families.bodySemibold,
-    fontSize: FONTS.sizes.body,
+    fontSize: FONTS.sizes.sm,
     fontWeight: FONTS.weights.semibold,
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  day1Time: { color: COLORS.muted, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.xs },
+  planDayTime: { color: COLORS.muted, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.xs },
   pdfBtn: {
     borderRadius: RADIUS.pill,
     borderWidth: 1,
@@ -283,8 +319,5 @@ const styles = StyleSheet.create({
     fontWeight: FONTS.weights.semibold,
     fontFamily: FONTS.families.bodySemibold,
   },
-  ctaWrap: { borderRadius: RADIUS.pill, overflow: "hidden", ...SHADOWS.cta },
-  cta: { paddingVertical: SPACING.md, alignItems: "center" },
-  ctaText: { color: COLORS.white, fontFamily: FONTS.families.display, fontSize: 17, fontWeight: FONTS.weights.bold },
   fine: { color: COLORS.muted, fontFamily: FONTS.families.body, fontSize: FONTS.sizes.tiny, textAlign: "center" },
 });
