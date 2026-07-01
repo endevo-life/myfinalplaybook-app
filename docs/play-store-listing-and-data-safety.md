@@ -65,7 +65,7 @@ This app is for educational purposes only and is not legal, financial, tax, or m
 - **Tags / keywords:** estate planning, legacy, will, executor, end of life, preparedness, peace of mind
 - **Contact email:** [SUPPORT EMAIL — e.g. support@endevo.life]
 - **Website:** https://endevo.life
-- **Privacy policy URL:** https://endevo.life/finalplaybook/privacy  **[publish first]**
+- **Privacy policy URL:** https://www.endevo.life/myfinalplaybook/app/privacy  ✅ **LIVE (verified 2026-06-30)**
 
 ---
 
@@ -167,8 +167,8 @@ reference death/end-of-life planning in an educational, non-graphic way.
 ---
 
 ## Placeholders for Niki to fill
-- [SUPPORT EMAIL]
-- [Confirm: analytics ON or OFF at launch]
-- [Confirm: app category — Lifestyle vs Health & Fitness]
-- [Confirm: data deletion process wording]
-- Privacy policy must be **live at its URL** before submitting.
+- [SUPPORT EMAIL] — still needed (recommend support@endevo.life, must be a monitored inbox)
+- ~~[Confirm: analytics ON or OFF at launch]~~ ✅ **RESOLVED: OFF** — analytics is stubbed in code (src/lib/analytics.ts only console.logs, sends nothing). Use the "analytics OFF" Data Safety answers; Device IDs = No.
+- [Confirm: app category — Lifestyle vs Health & Fitness] — recommend **Lifestyle**
+- [Confirm: data deletion process wording] — recommend: "Email hello@endevo.life to request deletion; unsubscribe link in any marketing email."
+- ~~Privacy policy must be live~~ ✅ **LIVE + verified 2026-06-30:** https://www.endevo.life/myfinalplaybook/app/privacy
